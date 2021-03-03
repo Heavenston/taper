@@ -12,12 +12,40 @@ use flume::{Receiver, Sender};
 use net::TcpStream;
 use serde::{de::DeserializeOwned, Serialize};
 
+/// Event sent by a [`Socket`]
 pub enum SocketEvent<P> {
+    /// Sent when a full packet has been received through the [`Socket`]
     Packet(P),
+    /// Sent when an invalid packet was received through the [`Socket`]
     InvalidPacket,
+    /// Sent when an IoError happens when reading packets
     IoError(std::io::Error),
 }
 
+/// Represent a connection to a remote host
+/// Used both for client to server and server to client connections
+/// The generic `P` represent the Packet type, it must implement both [`Serialize`] and [`DeserializeOwned`] (so it can be sent and received across the network)
+///
+/// Example usage to connect to a remote server:
+/// ```no_run
+/// use taper::{Socket, SocketEvent};
+///
+/// // Tries to connect to server on localhost with port 1234
+/// // with packets of types [`u32`]
+/// let socket = Socket::<u32>::connect("127.0.0.1:1234").unwrap();
+///
+/// // Send a packet to the server
+/// socket.packet_sender().send(56745).unwrap();
+///
+/// // Receive and log packets/errors
+/// loop {
+///     match socket.event_receiver().recv().unwrap() {
+///         SocketEvent::Packet(packet) => println!("Received a packet from the server: {}", packet),
+///         SocketEvent::InvalidPacket => println!("The server sent an invalid packet :("),
+///         SocketEvent::IoError(error) => println!("An error occurred {}", error),
+///     }
+/// }
+/// ```
 pub struct Socket<P>
 where
     P: Serialize + Send + 'static,
@@ -29,17 +57,25 @@ impl<P> Socket<P>
 where
     P: Serialize + DeserializeOwned + Send + 'static,
 {
+    /// Opens a connection to a remote host
+    ///
+    /// Async version of [`connect`]
+    /// Requires the `async` feature
     #[cfg(feature = "async")]
     pub async fn connect_async(addr: impl net::ToSocketAddrs) -> Result<Self, std::io::Error> {
         let tcp_stream = TcpStream::connect(addr).await?;
         Ok(Self::from_tcp_stream(tcp_stream))
     }
+    /// Opens a connection to a remote host
+    ///
+    /// See type-level documentation for usage
     pub fn connect(addr: impl std::net::ToSocketAddrs) -> Result<Self, std::io::Error> {
         let tcp_stream = std::net::TcpStream::connect(addr)?;
         #[cfg(feature = "async")]
-        tcp_stream.set_nonblocking(true).unwrap();
-        #[cfg(feature = "async")]
-        let tcp_stream = TcpStream::from_std(tcp_stream)?;
+        let tcp_stream = {
+            tcp_stream.set_nonblocking(true).unwrap();
+            TcpStream::from_std(tcp_stream)?
+        };
         Ok(Self::from_tcp_stream(tcp_stream))
     }
 
@@ -172,9 +208,16 @@ where
         }
     }
 
+    /// Get the packet sender flume channel
+    /// Just send packets in it and they will be ultimately sent down the tcp stream
+    ///
+    /// You can clone it however you want
     pub fn packet_sender(&self) -> &Sender<P> {
         &self.packet_sender
     }
+    /// Returns a reference to the SocketEvent receiver flume channel
+    /// Use this to receive packets from your clients
+    /// You probably shouldn't clone this as events won't be cloned across the cloned receivers
     pub fn event_receiver(&self) -> &Receiver<SocketEvent<P>> {
         &self.event_receiver
     }
