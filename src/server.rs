@@ -87,7 +87,7 @@ where
                 loop {
                     match listener.accept().await {
                         Ok((stream, _)) => {
-                            let socket = Socket::<P>::from_tcp_stream(stream);
+                            let socket = Socket::from_tcp_stream(stream);
                             match event_sender.send_async(ServerEvent::Socket(socket)).await {
                                 Err(..) => break,
                                 Ok(..) => (),
