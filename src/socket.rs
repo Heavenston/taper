@@ -61,18 +61,20 @@ impl<P> Socket<P>
 where
     P: Serialize + DeserializeOwned + Send + 'static,
 {
-    /// Opens a connection to a remote host
+    /// Opens a connection to a remote host.
     ///
-    /// Async version of [`connect`]
-    /// Requires the `async` feature
+    /// Async version of [`connect`].
+    /// Requires the `async` feature.
+    /// Must be executed while being in a tokio runtime.
     #[cfg(feature = "async")]
     pub async fn connect_async(addr: impl net::ToSocketAddrs) -> Result<Self, std::io::Error> {
         let tcp_stream = TcpStream::connect(addr).await?;
         Ok(Self::from_tcp_stream(tcp_stream))
     }
-    /// Opens a connection to a remote host
+    /// Opens a connection to a remote host.
+    /// Not that, if the `async` feature is enabled, this must be executed while being in a tokio runtime.
     ///
-    /// See type-level documentation for usage
+    /// See type-level documentation for usage.
     pub fn connect(addr: impl std::net::ToSocketAddrs) -> Result<Self, std::io::Error> {
         let tcp_stream = std::net::TcpStream::connect(addr)?;
         #[cfg(feature = "async")]
@@ -212,13 +214,13 @@ where
         }
     }
 
-    /// Get the packet sender flume channel
-    /// Just send packets in it and they will be ultimately sent down the tcp stream
+    /// Get the packet sender flume channel.
+    /// Just send packets in it and they will be ultimately sent down the tcp stream.
     pub fn packet_sender(&self) -> &Sender<P> {
         &self.packet_sender
     }
-    /// Returns a reference to the SocketEvent receiver flume channel
-    /// Use this to receive packets from your clients
+    /// Returns a reference to the SocketEvent receiver flume channel.
+    /// Use this to receive packets from your clients.
     pub fn event_receiver(&self) -> &Receiver<SocketEvent<P>> {
         &self.event_receiver
     }
