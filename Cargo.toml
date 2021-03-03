@@ -1,6 +1,6 @@
 [package]
 name = "taper"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Heavenstone"]
 edition = "2018"
 description = "A simple and easy tcp packet based network communication library"
