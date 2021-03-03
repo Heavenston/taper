@@ -18,7 +18,9 @@ pub enum SocketEvent<P> {
     Packet(P),
     /// Sent when an invalid packet was received through the [`Socket`]
     InvalidPacket,
-    /// Sent when an IoError happens while reading packets
+    /// Sent when an [`IoError`] occurs while receiving packets [`Socket`]s
+    ///
+    /// [`IoError`]: struct@std::io::Error
     IoError(std::io::Error),
 }
 

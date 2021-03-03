@@ -15,7 +15,9 @@ where
 {
     /// Sent when a new [`Socket`] connects to the server
     Socket(Socket<P>),
-    /// Sent when an IoError happens while accepting sockets
+    /// Sent when an [`IoError`] occurs while accepting [`Socket`]s
+    ///
+    /// [`IoError`]: struct@std::io::Error
     IoError(std::io::Error),
 }
 
