@@ -13,9 +13,9 @@ use net::TcpStream;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Event sent by a [`Socket`]
-pub enum SocketEvent<P> {
+pub enum SocketEvent<T> {
     /// Sent when a full packet has been received through the [`Socket`]
-    Packet(P),
+    Packet(T),
     /// Sent when an invalid packet was received through the [`Socket`]
     InvalidPacket,
     /// Sent when an [`IoError`] occurs while receiving packets [`Socket`]s
@@ -27,16 +27,14 @@ pub enum SocketEvent<P> {
 /// Represent a connection to a remote host.
 /// Used both for client to server and server to client connections.
 ///
-/// The generic `P` represent the Packet type,
-/// it must implement both [`Serialize`] and [`DeserializeOwned`]
-/// (so it can be sent and received across the network)
+/// The generics `TSentPacket` and `TRecvPacket` correspond respectively to the type of packets sent and received from the socket.
 ///
 /// Example usage to connect to a remote server:
 /// ```no_run
 /// use taper::{Socket, SocketEvent};
 ///
 /// // Tries to connect to server on localhost with port 1234 with packets of types u32
-/// let socket = Socket::<u32>::connect("127.0.0.1:1234").unwrap();
+/// let socket = Socket::<u32, u32>::connect("127.0.0.1:1234").unwrap();
 ///
 /// // Send a packet to the server
 /// socket.packet_sender().send(56745).unwrap();
@@ -50,16 +48,18 @@ pub enum SocketEvent<P> {
 ///     }
 /// }
 /// ```
-pub struct Socket<P>
+pub struct Socket<TSentPacket, TRecvPacket>
 where
-    P: Serialize + Send + 'static,
+    TSentPacket: Serialize + Send + 'static,
+    TRecvPacket: DeserializeOwned + Send + 'static,
 {
-    packet_sender: Sender<P>,
-    event_receiver: Receiver<SocketEvent<P>>,
+    packet_sender: Sender<TSentPacket>,
+    event_receiver: Receiver<SocketEvent<TRecvPacket>>,
 }
-impl<P> Socket<P>
+impl<TSentPacket, TRecvPacket> Socket<TSentPacket, TRecvPacket>
 where
-    P: Serialize + DeserializeOwned + Send + 'static,
+    TSentPacket: Serialize + Send + 'static,
+    TRecvPacket: DeserializeOwned + Send + 'static,
 {
     /// Opens a connection to a remote host.
     ///
@@ -216,12 +216,12 @@ where
 
     /// Get the packet sender flume channel.
     /// Just send packets in it and they will be ultimately sent down the tcp stream.
-    pub fn packet_sender(&self) -> &Sender<P> {
+    pub fn packet_sender(&self) -> &Sender<TSentPacket> {
         &self.packet_sender
     }
     /// Returns a reference to the SocketEvent receiver flume channel.
     /// Use this to receive packets from your clients.
-    pub fn event_receiver(&self) -> &Receiver<SocketEvent<P>> {
+    pub fn event_receiver(&self) -> &Receiver<SocketEvent<TRecvPacket>> {
         &self.event_receiver
     }
 }
