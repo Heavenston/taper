@@ -19,21 +19,27 @@ where
     IoError(std::io::Error),
 }
 
-/// Represent a server capable of accepting remote connections
-/// When bound to an address, it will start accepting new [`Socket`]s and sending them up the [`event_receiver`]
+/// Represent a server capable of accepting remote connections.
+/// When bound to an address, it will start accepting new [`Socket`]s and sending them up the [`event_receiver`].
+///
+/// The `P` generic parameter correspond to the type of the Packets that connecting Sockets will use to communicate,
+/// see [`Socket`] documentation for details.
+///
+/// [`event_receiver`]: method@crate::Server::event_receiver
 ///
 /// Example usage
 /// ```no_run
 /// use taper::Server;
 ///
-/// // Bind server for listening on localhost and port 1234
-/// let server = Server::bind("127.0.0.1:1234");
+/// // Try to bind server for listening on localhost and port 1234
+/// // Using u32 packets
+/// let server = Server::<u32>::bind("127.0.0.1:1234").unwrap();
 ///
 /// // Wait for the connection of a single socket
-/// let socket = server.
+/// let socket = server.event_receiver().recv().unwrap();
 /// ```
-/// After that, use sockets however you want !
-/// See [`Socket`] documentation for more details
+/// After that, use sockets however you want!
+/// See [`Socket`] documentation for more details.
 pub struct Server<P>
 where
     P: Serialize + Send + 'static,
