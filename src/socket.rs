@@ -98,6 +98,7 @@ where
                 let mut packet_buffer = Vec::with_capacity(20);
 
                 loop {
+                    packet_buffer.clear();
                     macro_rules! send_event {
                         ($event:expr) => {
                             match event_sender.send_async($event).await {
@@ -141,6 +142,7 @@ where
             tokio::spawn(async move {
                 let mut packet_buffer = Vec::with_capacity(20);
                 while let Ok(packet) = packet_receiver.recv_async().await {
+                    packet_buffer.clear();
                     bincode::serialize_into(&mut packet_buffer, &packet).unwrap();
                     match write
                         .write_all(&(packet_buffer.len() as u32).to_ne_bytes())
@@ -195,6 +197,7 @@ where
             std::thread::spawn(move || {
                 let mut packet_buffer = Vec::with_capacity(20);
                 while let Ok(packet) = packet_receiver.recv() {
+                    packet_buffer.clear();
                     bincode::serialize_into(&mut packet_buffer, &packet).unwrap();
                     match write.write_all(&(packet_buffer.len() as u32).to_ne_bytes()) {
                         Ok(..) => (),
