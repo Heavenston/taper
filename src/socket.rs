@@ -18,7 +18,7 @@ pub enum SocketEvent<P> {
     Packet(P),
     /// Sent when an invalid packet was received through the [`Socket`]
     InvalidPacket,
-    /// Sent when an IoError happens when reading packets
+    /// Sent when an IoError happens while reading packets
     IoError(std::io::Error),
 }
 
@@ -210,14 +210,11 @@ where
 
     /// Get the packet sender flume channel
     /// Just send packets in it and they will be ultimately sent down the tcp stream
-    ///
-    /// You can clone it however you want
     pub fn packet_sender(&self) -> &Sender<P> {
         &self.packet_sender
     }
     /// Returns a reference to the SocketEvent receiver flume channel
     /// Use this to receive packets from your clients
-    /// You probably shouldn't clone this as events won't be cloned across the cloned receivers
     pub fn event_receiver(&self) -> &Receiver<SocketEvent<P>> {
         &self.event_receiver
     }

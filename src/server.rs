@@ -8,14 +8,32 @@ use flume::Receiver;
 use net::TcpListener;
 use serde::{de::DeserializeOwned, Serialize};
 
+/// Event sent by a [`Server`]
 pub enum ServerEvent<P>
 where
     P: Serialize + Send + 'static,
 {
+    /// Sent when a new [`Socket`] connects to the server
     Socket(Socket<P>),
+    /// Sent when an IoError happens while accepting sockets
     IoError(std::io::Error),
 }
 
+/// Represent a server capable of accepting remote connections
+/// When bound to an address, it will start accepting new [`Socket`]s and sending them up the [`event_receiver`]
+///
+/// Example usage
+/// ```no_run
+/// use taper::Server;
+///
+/// // Bind server for listening on localhost and port 1234
+/// let server = Server::bind("127.0.0.1:1234");
+///
+/// // Wait for the connection of a single socket
+/// let socket = server.
+/// ```
+/// After that, use sockets however you want !
+/// See [`Socket`] documentation for more details
 pub struct Server<P>
 where
     P: Serialize + Send + 'static,
@@ -27,11 +45,18 @@ impl<P> Server<P>
 where
     P: Serialize + DeserializeOwned + Send + 'static,
 {
+    /// Creates a server bound to the provided addr
+    ///
+    /// Async version [`bind`]
+    /// Only available with the `async` feature
     #[cfg(feature = "async")]
     pub async fn bind_async(addr: impl net::ToSocketAddrs) -> Result<Self, std::io::Error> {
         let tcp_listener = TcpListener::bind(addr).await?;
         Ok(Self::from_tcp_listener(tcp_listener))
     }
+    /// Creates a server bound to the provided addr
+    ///
+    /// See type-level documentation for usage
     pub fn bind(addr: impl std::net::ToSocketAddrs) -> Result<Self, std::io::Error> {
         let tcp_listener = std::net::TcpListener::bind(addr)?;
         #[cfg(feature = "async")]
@@ -87,6 +112,10 @@ where
         Self { event_receiver }
     }
 
+    /// Returns a reference to the [`ServerEvent`] receiver flume channel
+    /// Use this to receive events from the [`Server`], a.k.a. new sockets and errors
+    ///
+    /// See type-level documentation for usage
     pub fn event_receiver(&self) -> &Receiver<ServerEvent<P>> {
         &self.event_receiver
     }
