@@ -22,16 +22,18 @@ pub enum SocketEvent<P> {
     IoError(std::io::Error),
 }
 
-/// Represent a connection to a remote host
-/// Used both for client to server and server to client connections
-/// The generic `P` represent the Packet type, it must implement both [`Serialize`] and [`DeserializeOwned`] (so it can be sent and received across the network)
+/// Represent a connection to a remote host.
+/// Used both for client to server and server to client connections.
+///
+/// The generic `P` represent the Packet type,
+/// it must implement both [`Serialize`] and [`DeserializeOwned`]
+/// (so it can be sent and received across the network)
 ///
 /// Example usage to connect to a remote server:
 /// ```no_run
 /// use taper::{Socket, SocketEvent};
 ///
-/// // Tries to connect to server on localhost with port 1234
-/// // with packets of types [`u32`]
+/// // Tries to connect to server on localhost with port 1234 with packets of types u32
 /// let socket = Socket::<u32>::connect("127.0.0.1:1234").unwrap();
 ///
 /// // Send a packet to the server
