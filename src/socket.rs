@@ -145,7 +145,7 @@ where
                     packet_buffer.clear();
                     bincode::serialize_into(&mut packet_buffer, &packet).unwrap();
                     match write
-                        .write_all(&(packet_buffer.len() as u32).to_ne_bytes())
+                        .write_all(&(packet_buffer.len() as u16).to_ne_bytes())
                         .await
                     {
                         Ok(..) => (),
@@ -199,7 +199,7 @@ where
                 while let Ok(packet) = packet_receiver.recv() {
                     packet_buffer.clear();
                     bincode::serialize_into(&mut packet_buffer, &packet).unwrap();
-                    match write.write_all(&(packet_buffer.len() as u32).to_ne_bytes()) {
+                    match write.write_all(&(packet_buffer.len() as u16).to_ne_bytes()) {
                         Ok(..) => (),
                         Err(..) => break,
                     }
