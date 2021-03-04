@@ -111,7 +111,11 @@ where
                     }
 
                     match read.read_exact(&mut packet_size_buf).await {
-                        Ok(..) => {}
+                        Ok(..) => (),
+                        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                            event_sender.send(SocketEvent::IoError(e)).ok();
+                            break;
+                        }
                         Err(error) => {
                             send_event!(SocketEvent::IoError(error))
                         }
@@ -131,9 +135,15 @@ where
                     };
 
                     match bincode::deserialize(&packet_buffer) {
-                        Err(..) => {
-                            send_event!(SocketEvent::InvalidPacket)
-                        }
+                        Err(error) => match *error {
+                            bincode::ErrorKind::Io(e)
+                                if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                            {
+                                event_sender.send(SocketEvent::IoError(e)).ok();
+                                break;
+                            }
+                            _ => send_event!(SocketEvent::InvalidPacket),
+                        },
                         Ok(p) => {
                             send_event!(SocketEvent::Packet(p))
                         }
