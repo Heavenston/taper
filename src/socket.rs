@@ -53,8 +53,10 @@ where
     TSentPacket: Serialize + Send + 'static,
     TRecvPacket: DeserializeOwned + Send + 'static,
 {
-    packet_sender: Sender<TSentPacket>,
-    event_receiver: Receiver<SocketEvent<TRecvPacket>>,
+    packet_sender: Option<Sender<TSentPacket>>,
+    event_receiver: Option<Receiver<SocketEvent<TRecvPacket>>>,
+    #[cfg(not(feature = "async"))]
+    join_handles: Vec<std::thread::JoinHandle<()>>,
 }
 impl<TSentPacket, TRecvPacket> Socket<TSentPacket, TRecvPacket>
 where
@@ -159,7 +161,7 @@ where
             });
         }
         #[cfg(not(feature = "async"))]
-        {
+        let join_handles = {
             let (mut read, mut write) = (stream.try_clone().unwrap(), stream);
             std::thread::spawn(move || {
                 let mut packet_size_buf = [0; std::mem::size_of::<u16>()];
@@ -175,6 +177,10 @@ where
 
                     match read.read_exact(&mut packet_size_buf) {
                         Ok(..) => {}
+                        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                            event_sender.send(SocketEvent::IoError(e)).ok();
+                            break;
+                        }
                         Err(error) => {
                             send_event!(SocketEvent::IoError(error))
                         }
@@ -185,16 +191,22 @@ where
                         Ok(..) if take_stream.limit() > 0 => {
                             send_event!(SocketEvent::InvalidPacket)
                         }
-                        Err(..) => {
-                            send_event!(SocketEvent::InvalidPacket)
-                        }
+                        Err(error) => match *error {
+                            bincode::ErrorKind::Io(e)
+                                if e.kind() == std::io::ErrorKind::UnexpectedEof =>
+                            {
+                                event_sender.send(SocketEvent::IoError(e)).ok();
+                                break;
+                            }
+                            _ => send_event!(SocketEvent::InvalidPacket),
+                        },
                         Ok(p) => {
                             send_event!(SocketEvent::Packet(p))
                         }
                     }
                 }
             });
-            std::thread::spawn(move || {
+            let send_handle = std::thread::spawn(move || {
                 let mut packet_buffer = Vec::with_capacity(20);
                 while let Ok(packet) = packet_receiver.recv() {
                     packet_buffer.clear();
@@ -209,22 +221,44 @@ where
                     }
                 }
             });
-        }
 
-        Self {
-            packet_sender,
-            event_receiver,
-        }
+            [send_handle].into()
+        };
+
+        #[cfg(not(feature = "async"))]
+        return Self {
+            packet_sender: Some(packet_sender),
+            event_receiver: Some(event_receiver),
+            join_handles,
+        };
+        #[cfg(feature = "async")]
+        return Self {
+            packet_sender: Some(packet_sender),
+            event_receiver: Some(event_receiver),
+        };
     }
 
     /// Get the packet sender flume channel.
     /// Just send packets in it and they will be ultimately sent down the tcp stream.
     pub fn packet_sender(&self) -> &Sender<TSentPacket> {
-        &self.packet_sender
+        self.packet_sender.as_ref().unwrap()
     }
     /// Returns a reference to the SocketEvent receiver flume channel.
     /// Use this to receive packets from your clients.
     pub fn event_receiver(&self) -> &Receiver<SocketEvent<TRecvPacket>> {
-        &self.event_receiver
+        &self.event_receiver.as_ref().unwrap()
+    }
+}
+
+#[cfg(not(feature = "async"))]
+impl<TSentPacket, TRecvPacket> Drop for Socket<TSentPacket, TRecvPacket>
+where
+    TSentPacket: Serialize + Send + 'static,
+    TRecvPacket: DeserializeOwned + Send + 'static,
+{
+    fn drop(&mut self) {
+        self.packet_sender = None;
+        self.event_receiver = None;
+        self.join_handles.drain(..).for_each(|h| h.join().unwrap());
     }
 }
